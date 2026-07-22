@@ -37,7 +37,10 @@ final class SnapIndicatorOverlay {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let viewport = view.visibleRect
-        if let x = localX ?? externalX, !viewport.isEmpty {
+        if let x = localX ?? externalX, !viewport.isEmpty,
+           viewport.width.isFinite, viewport.height.isFinite,
+           viewport.width > 0, viewport.height > 0,
+           viewport.minX >= -100_000, viewport.minY >= -100_000 {
             let geo = view.geometry
             let path = CGMutablePath()
             path.move(to: CGPoint(x: x - viewport.minX, y: Double(geo.rulerHeight) - viewport.minY))

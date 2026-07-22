@@ -119,16 +119,18 @@ final class TimelineView: NSView {
         }
 
         let totalFrames = editor.timeline.totalFrames
-        let contentWidth = editor.zoomScale * Double(totalFrames) + visibleSize.width * 0.5
+        let rawWidth = editor.zoomScale * Double(totalFrames) + visibleSize.width * 0.5
+        let contentWidth = rawWidth.isFinite ? max(visibleSize.width, rawWidth) : max(visibleSize.width, 1000)
         let geo = geometry
         let contentHeight: CGFloat
         if editor.timeline.tracks.isEmpty {
             contentHeight = visibleSize.height
         } else {
             let lastTrack = editor.timeline.tracks.count - 1
-            contentHeight = max(visibleSize.height, geo.trackY(at: lastTrack) + geo.trackHeight(at: lastTrack) + Layout.dropZoneHeight)
+            let computed = geo.trackY(at: lastTrack) + geo.trackHeight(at: lastTrack) + Layout.dropZoneHeight
+            contentHeight = computed.isFinite ? max(visibleSize.height, computed) : visibleSize.height
         }
-        let newSize = NSSize(width: max(visibleSize.width, contentWidth), height: contentHeight)
+        let newSize = NSSize(width: max(10, min(1_000_000, contentWidth)), height: max(10, min(100_000, contentHeight)))
         if frame.size != newSize {
             setFrameSize(newSize)
         }

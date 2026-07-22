@@ -47,7 +47,10 @@ final class PlayheadOverlay {
         guard let view, let editor else { return }
         let geo = view.geometry
         let viewport = view.visibleRect
-        guard !viewport.isEmpty else { return }
+        guard !viewport.isEmpty,
+              viewport.width.isFinite, viewport.height.isFinite,
+              viewport.width > 0, viewport.height > 0,
+              viewport.minX >= -100_000, viewport.minY >= -100_000 else { return }
         let x = Double(editor.playheadState.timelineFrame) * geo.pixelsPerFrame - viewport.minX
         let top = Double(geo.rulerHeight)
         let bottom = Double(viewport.height)
