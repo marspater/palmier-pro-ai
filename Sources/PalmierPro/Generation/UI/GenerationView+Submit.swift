@@ -243,7 +243,7 @@ extension GenerationView {
         if let clipId = replacementClipId {
             editor.markPendingReplacement(clipId: clipId)
         }
-        let makeOnComplete: (Bool) -> (@MainActor (MediaAsset) -> Void)? = { resetTrim in
+        let makeOnComplete: (Bool) -> (@MainActor (MediaAsset) -> Void)? = { [editorRef] resetTrim in
             guard let clipId = replacementClipId else { return nil }
             let firstOnly = FirstOnlyFlag()
             return { [weak editorRef] newAsset in
@@ -252,7 +252,7 @@ extension GenerationView {
                 editorRef?.clearPendingReplacement(clipId: clipId)
             }
         }
-        let onFailure: (@MainActor () -> Void)? = {
+        let onFailure: (@MainActor () -> Void)? = { [editorRef] in
             guard let clipId = replacementClipId else { return nil }
             return { [weak editorRef] in
                 editorRef?.clearPendingReplacement(clipId: clipId)

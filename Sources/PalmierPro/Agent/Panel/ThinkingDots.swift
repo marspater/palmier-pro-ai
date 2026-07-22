@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct ThinkingDots: View {
     @State private var phase = 0

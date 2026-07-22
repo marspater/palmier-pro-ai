@@ -449,7 +449,7 @@ final class GenerationService {
                     scaleFactor: 2.0
                 )
 
-                updateGenerationMetadata(primaryPlaceholder, editor: editor, status: .none)
+                updateGenerationMetadata(primaryPlaceholder, editor: editor, status: MediaAsset.GenerationStatus.none)
                 editor.importMediaAsset(primaryPlaceholder, skipAppend: true)
                 let _ = await editor.finalizeImportedAsset(primaryPlaceholder)
                 editor.appendGenerationLog(for: primaryPlaceholder)

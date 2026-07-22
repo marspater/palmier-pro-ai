@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "PalmierPro",
-    platforms: [.macOS(.v26)],
+    platforms: [.macOS("26.2")],
     products: [
         .executable(name: "PalmierPro", targets: ["PalmierPro"]),
     ],

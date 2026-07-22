@@ -71,14 +71,9 @@ final class LocalUpscaleEngine: @unchecked Sendable {
             throw UpscaleError.invalidTrack
         }
 
-        let newWidth = ciImage.extent.width * scaleFactor
-        let newHeight = ciImage.extent.height * scaleFactor
-
         let transform = CGAffineTransform(scaleX: scaleFactor, y: scaleFactor)
         let scaledImage = ciImage.transformed(by: transform)
-
         let colorSpace = ciImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
-        let format: CIFormat = .RGBA8
 
         try FileManager.default.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let jpegData = ciContext.jpegRepresentation(of: scaledImage, colorSpace: colorSpace, options: [:]) {

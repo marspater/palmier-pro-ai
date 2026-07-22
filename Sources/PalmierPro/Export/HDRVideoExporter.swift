@@ -199,6 +199,7 @@ enum HDRVideoExporter {
         let input: AVAssetWriterInput
         let output: AVAssetReaderOutput
         let reader: AVAssetReader
+        var lastReported = -1.0
         init(_ input: AVAssetWriterInput, _ output: AVAssetReaderOutput, _ reader: AVAssetReader) {
             self.input = input
             self.output = output
@@ -209,8 +210,8 @@ enum HDRVideoExporter {
     /// Drain one reader output into one writer input, honoring back-pressure.
     private static func pump(_ box: PumpBox, failure: FailureBox, onSeconds: (@Sendable (Double) -> Void)? = nil) async {
         let queue = DispatchQueue(label: "hdr.pump.\(box.input.mediaType.rawValue)")
+        let box = box
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            var lastReported = -1.0
             box.input.requestMediaDataWhenReady(on: queue) {
                 while box.input.isReadyForMoreMediaData {
                     guard let sample = box.output.copyNextSampleBuffer() else {
@@ -228,7 +229,7 @@ enum HDRVideoExporter {
                     }
                     if let onSeconds {
                         let secs = CMSampleBufferGetPresentationTimeStamp(sample).seconds
-                        if secs.isFinite, secs - lastReported >= 0.25 { lastReported = secs; onSeconds(secs) }
+                        if secs.isFinite, secs - box.lastReported >= 0.25 { box.lastReported = secs; onSeconds(secs) }
                     }
                 }
             }
@@ -236,7 +237,7 @@ enum HDRVideoExporter {
     }
 
     /// Non-Sendable CoreImage handles for the 709 → HLG video pump.
-    private struct ProcessingContext: @unchecked Sendable {
+    private final class ProcessingContext: @unchecked Sendable {
         let input: AVAssetWriterInput
         let output: AVAssetReaderOutput
         let reader: AVAssetReader
@@ -245,6 +246,27 @@ enum HDRVideoExporter {
         let renderSize: CGSize
         let inputSpace: CGColorSpace
         let outputSpace: CGColorSpace
+        var lastReported = -1.0
+
+        init(
+            input: AVAssetWriterInput,
+            output: AVAssetReaderOutput,
+            reader: AVAssetReader,
+            adaptor: AVAssetWriterInputPixelBufferAdaptor,
+            ciContext: CIContext,
+            renderSize: CGSize,
+            inputSpace: CGColorSpace,
+            outputSpace: CGColorSpace
+        ) {
+            self.input = input
+            self.output = output
+            self.reader = reader
+            self.adaptor = adaptor
+            self.ciContext = ciContext
+            self.renderSize = renderSize
+            self.inputSpace = inputSpace
+            self.outputSpace = outputSpace
+        }
     }
 
     /// Like `pump`, but converts each SDR 709 frame to a 10-bit HLG buffer via the adaptor.
@@ -253,8 +275,8 @@ enum HDRVideoExporter {
     ) async {
         let queue = DispatchQueue(label: "hdr.pump.video.processed")
         let bounds = CGRect(origin: .zero, size: c.renderSize)
+        let c = c
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            var lastReported = -1.0
             c.input.requestMediaDataWhenReady(on: queue) {
                 while c.input.isReadyForMoreMediaData {
                     guard let sample = c.output.copyNextSampleBuffer(),
@@ -282,7 +304,7 @@ enum HDRVideoExporter {
                     }
                     if let onSeconds {
                         let secs = pts.seconds
-                        if secs.isFinite, secs - lastReported >= 0.25 { lastReported = secs; onSeconds(secs) }
+                        if secs.isFinite, secs - c.lastReported >= 0.25 { c.lastReported = secs; onSeconds(secs) }
                     }
                 }
             }
