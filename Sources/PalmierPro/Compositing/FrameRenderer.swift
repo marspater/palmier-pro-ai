@@ -267,18 +267,33 @@ enum FrameRenderer {
 
         let crop = clip.cropAt(frame: frame)
         if !crop.isIdentity {
-            // Display-space insets → source pixels → CI's bottom-left origin.
+            let left = (crop.left.isFinite && !crop.left.isNaN) ? crop.left : 0
+            let top = (crop.top.isFinite && !crop.top.isNaN) ? crop.top : 0
+            let wFrac = (crop.visibleWidthFraction.isFinite && !crop.visibleWidthFraction.isNaN) ? max(0.001, crop.visibleWidthFraction) : 1.0
+            let hFrac = (crop.visibleHeightFraction.isFinite && !crop.visibleHeightFraction.isNaN) ? max(0.001, crop.visibleHeightFraction) : 1.0
+            let natW = (layer.natSize.width.isFinite && layer.natSize.width > 0) ? layer.natSize.width : 1920
+            let natH = (layer.natSize.height.isFinite && layer.natSize.height > 0) ? layer.natSize.height : 1080
+
+            let invTransform = layer.preferredTransform.inverted()
+            let rawAvRect = CGRect(
+                x: left * natW,
+                y: top * natH,
+                width: max(1, wFrac * natW),
+                height: max(1, hFrac * natH)
+            ).applying(invTransform)
+
             let avRect = CGRect(
-                x: crop.left * layer.natSize.width,
-                y: crop.top * layer.natSize.height,
-                width: max(1, crop.visibleWidthFraction * layer.natSize.width),
-                height: max(1, crop.visibleHeightFraction * layer.natSize.height)
-            ).applying(layer.preferredTransform.inverted())
+                x: (rawAvRect.origin.x.isFinite && !rawAvRect.origin.x.isNaN) ? rawAvRect.origin.x : 0,
+                y: (rawAvRect.origin.y.isFinite && !rawAvRect.origin.y.isNaN) ? rawAvRect.origin.y : 0,
+                width: (rawAvRect.width.isFinite && !rawAvRect.width.isNaN && rawAvRect.width > 0) ? rawAvRect.width : natW,
+                height: (rawAvRect.height.isFinite && !rawAvRect.height.isNaN && rawAvRect.height > 0) ? rawAvRect.height : natH
+            )
+
             image = image.cropped(to: CGRect(
                 x: avRect.origin.x,
-                y: srcHeight - avRect.origin.y - avRect.height,
-                width: avRect.width,
-                height: avRect.height
+                y: max(0, srcHeight - avRect.origin.y - avRect.height),
+                width: max(1, avRect.width),
+                height: max(1, avRect.height)
             ))
         }
 

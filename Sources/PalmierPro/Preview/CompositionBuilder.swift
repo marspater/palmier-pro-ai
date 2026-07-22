@@ -43,15 +43,14 @@ enum CompositionBuilder {
         missingMediaRefs: Set<String> = [],
         renderSize: CGSize
     ) async throws -> CompositionResult {
-        Log.preview.info("build fps=\(timeline.fps) size=\(timeline.width)x\(timeline.height) tracks=\(timeline.tracks.count)")
-        guard timeline.fps > 0, timeline.width > 0, timeline.height > 0 else {
-            Log.preview.fault("build: invalid timeline fps=\(timeline.fps) size=\(timeline.width)x\(timeline.height)")
-            throw InvalidTimelineError(reason: "fps=\(timeline.fps) size=\(timeline.width)x\(timeline.height)")
-        }
+        let fps = max(1, timeline.fps)
+        let width = max(1, timeline.width)
+        let height = max(1, timeline.height)
+        Log.preview.info("build fps=\(fps) size=\(width)x\(height) tracks=\(timeline.tracks.count)")
         let ctx = BuildContext(
             composition: AVMutableComposition(),
-            timescale: CMTimeScale(timeline.fps),
-            renderSize: renderSize,
+            timescale: CMTimeScale(fps),
+            renderSize: (renderSize.width > 0 && renderSize.height > 0) ? renderSize : CGSize(width: width, height: height),
             resolveURL: resolveURL,
             resolveSourceSize: resolveSourceSize,
             resolveTimeline: resolveTimeline,
