@@ -52,10 +52,7 @@ final class AgentService {
     private func selectClient() -> (any AgentClient)? {
         let chosen = effectiveModel
         if hasApiKey { return AnthropicClient(apiKey: apiKey, model: chosen) }
-        if AccountService.shared.isSignedIn {
-            return PalmierClient(model: chosen)
-        }
-        return nil
+        return LocalAgentClient(model: chosen)
     }
 
     var effectiveModel: AnthropicModel {

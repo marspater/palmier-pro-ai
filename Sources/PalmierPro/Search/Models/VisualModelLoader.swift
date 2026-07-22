@@ -41,21 +41,22 @@ final class VisualModelLoader {
         default: break
         }
         state = .downloading(0)
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 let installed = try await downloader.install(
                     manifest: SearchIndexConfig.manifest, baseURL: SearchIndexConfig.baseURL
                 ) { [weak self] fraction in
-                    Task { @MainActor [weak self] in
+                    Task { @MainActor in
                         guard let self, case .downloading = self.state else { return }
                         self.state = .downloading(fraction)
                     }
                 }
-                guard enabled else { state = .unknown; return }
-                state = .preparing
-                await load(installed)
+                guard self.enabled else { self.state = .unknown; return }
+                self.state = .preparing
+                await self.load(installed)
             } catch {
-                state = .failed(error.localizedDescription)
+                self.state = .failed(error.localizedDescription)
                 Log.search.error("model download failed: \(error.localizedDescription)")
             }
         }

@@ -37,13 +37,13 @@ struct SettingsView: View {
     @Bindable private var account = AccountService.shared
     @State private var selectedTab: SettingsTab
 
-    init(initialTab: SettingsTab = .account) {
-        _selectedTab = State(initialValue: initialTab)
+    init(initialTab: SettingsTab = .models) {
+        _selectedTab = State(initialValue: initialTab == .account ? .models : initialTab)
     }
 
     private var visibleTabs: [SettingsTab] {
         SettingsTab.allCases.filter { tab in
-            !(tab == .account && account.isMisconfigured)
+            tab != .account
         }
     }
 

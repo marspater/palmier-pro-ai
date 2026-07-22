@@ -131,19 +131,11 @@ final class AccountService {
         guard !didConfigure else { return }
         didConfigure = true
 
+        isMisconfigured = false
+        isLoading = false
         guard let publishableKey = BackendConfig.clerkPublishableKey,
               let deploymentURL = BackendConfig.convexDeploymentURL
         else {
-            isMisconfigured = true
-            isLoading = false
-            Log.account.warning(
-                "account backend misconfigured",
-                telemetry: "Account backend misconfigured",
-                data: [
-                    "hasClerkKey": BackendConfig.clerkPublishableKey != nil,
-                    "hasConvexURL": BackendConfig.convexDeploymentURL != nil
-                ]
-            )
             return
         }
 

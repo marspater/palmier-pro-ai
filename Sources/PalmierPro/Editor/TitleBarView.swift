@@ -59,8 +59,6 @@ struct TitleBarTrailingView: View {
                     ? "Export"
                     : "Export, \(activeCount) active, \(waitingCount) waiting"
             )
-
-            UserAvatarButton()
         }
     }
 
