@@ -17,10 +17,14 @@ struct PreviewContainerView: View {
                 .panelHeaderBar()
 
             GeometryReader { geo in
-                let aspect = generatingAspect ?? CGFloat(editor.timeline.width) / CGFloat(editor.timeline.height)
-                let fitSize = fitSize(in: geo.size, aspect: aspect)
-                let scaledWidth = fitSize.width * editor.canvasZoom
-                let scaledHeight = fitSize.height * editor.canvasZoom
+                let rawAspect = CGFloat(editor.timeline.width) / max(1, CGFloat(editor.timeline.height))
+                let candidateAspect = generatingAspect ?? rawAspect
+                let aspect = (candidateAspect.isFinite && candidateAspect > 0) ? candidateAspect : (16.0 / 9.0)
+                let containerWidth = max(1, geo.size.width)
+                let containerHeight = max(1, geo.size.height)
+                let fitSize = fitSize(in: CGSize(width: containerWidth, height: containerHeight), aspect: aspect)
+                let scaledWidth = max(1, min(100_000, fitSize.width * editor.canvasZoom))
+                let scaledHeight = max(1, min(100_000, fitSize.height * editor.canvasZoom))
                 let timelineState = timelineFrameState
                 ZStack {
                     PreviewView()
@@ -289,11 +293,14 @@ struct PreviewContainerView: View {
     }
 
     private func fitSize(in container: CGSize, aspect: CGFloat) -> CGSize {
+        guard container.width > 0, container.height > 0, aspect > 0, aspect.isFinite else {
+            return CGSize(width: 1, height: 1)
+        }
         let widthFromHeight = container.height * aspect
         if widthFromHeight <= container.width {
-            return CGSize(width: widthFromHeight, height: container.height)
+            return CGSize(width: max(1, widthFromHeight), height: max(1, container.height))
         }
-        return CGSize(width: container.width, height: container.width / aspect)
+        return CGSize(width: max(1, container.width), height: max(1, container.width / max(0.001, aspect)))
     }
 
     private var activeMediaAsset: MediaAsset? {

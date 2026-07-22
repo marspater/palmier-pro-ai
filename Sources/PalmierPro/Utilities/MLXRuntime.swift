@@ -3,12 +3,16 @@ import os
 
 // Skip MLX model loads in unbundled builds to avoid a fatal mlx.metallib error.
 enum MLXRuntime {
-    static let isAvailable = Bundle.main.bundleURL.pathExtension == "app"
+    static let isAvailable: Bool = {
+        if Bundle.main.bundleURL.pathExtension == "app" { return true }
+        if Bundle.main.url(forResource: "mlx", withExtension: "metallib") != nil { return true }
+        return false
+    }()
     private static let gate = MLXOperationGate()
 
     struct Unavailable: Error, LocalizedError {
         var errorDescription: String? {
-            "MLX analysis is unavailable in unbundled builds (missing mlx.metallib)"
+            "MLX analysis unavailable in dev build"
         }
     }
 

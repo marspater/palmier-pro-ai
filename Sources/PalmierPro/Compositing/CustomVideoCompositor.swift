@@ -34,6 +34,9 @@ final class CustomVideoCompositor: NSObject, AVVideoCompositing, @unchecked Send
          kCVPixelBufferMetalCompatibilityKey as String: true]
     }
 
+    var supportsWideColorSourceFrames: Bool { true }
+    var supportsHDRWithDeviceProperty: Bool { true }
+
     func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
     func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {

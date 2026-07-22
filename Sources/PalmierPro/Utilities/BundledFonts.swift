@@ -15,7 +15,7 @@ enum BundledFonts {
 
         // Manually locate Fonts/ instead of Bundle.module to avoid SwiftPM crash.
         guard let fontsRoot = findFontsRoot() else {
-            Log.app.warning("BundledFonts: Fonts/ not found in main bundle; skipping registration")
+            Log.app.debug("BundledFonts: Fonts/ not found in main bundle; skipping registration")
             return
         }
 

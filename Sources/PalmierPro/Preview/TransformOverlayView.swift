@@ -229,25 +229,27 @@ struct TransformOverlayView: View {
     // MARK: - Layout
 
     private func videoContentRect(in viewSize: CGSize) -> CGRect {
-        let videoAspect = CGFloat(editor.timeline.width) / CGFloat(editor.timeline.height)
-        let viewAspect = viewSize.width / viewSize.height
+        guard viewSize.width > 0, viewSize.height > 0 else { return .zero }
+        let hDenom = max(1, CGFloat(editor.timeline.height))
+        let videoAspect = CGFloat(editor.timeline.width) / hDenom
+        let viewAspect = viewSize.width / max(1, viewSize.height)
         let w: CGFloat, h: CGFloat
         if viewAspect > videoAspect {
             h = viewSize.height; w = h * videoAspect
         } else {
-            w = viewSize.width; h = w / videoAspect
+            w = viewSize.width; h = w / max(0.001, videoAspect)
         }
-        return CGRect(x: (viewSize.width - w) / 2, y: (viewSize.height - h) / 2, width: w, height: h)
+        return CGRect(x: (viewSize.width - w) / 2, y: (viewSize.height - h) / 2, width: max(1, w), height: max(1, h))
     }
 
     private func clipFrame(_ t: Transform, videoRect: CGRect) -> CGRect {
+        guard videoRect.width > 0, videoRect.height > 0 else { return .zero }
         let tl = t.topLeft
-        return CGRect(
-            x: videoRect.origin.x + tl.x * videoRect.width,
-            y: videoRect.origin.y + tl.y * videoRect.height,
-            width: t.width * videoRect.width,
-            height: t.height * videoRect.height
-        )
+        let x = videoRect.origin.x + (tl.x.isFinite ? tl.x : 0) * videoRect.width
+        let y = videoRect.origin.y + (tl.y.isFinite ? tl.y : 0) * videoRect.height
+        let w = max(1, (t.width.isFinite ? t.width : 1) * videoRect.width)
+        let h = max(1, (t.height.isFinite ? t.height : 1) * videoRect.height)
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 
     private func cornerOffset(_ corner: Corner, halfW: CGFloat, halfH: CGFloat) -> CGPoint {
