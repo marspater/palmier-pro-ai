@@ -269,10 +269,10 @@ extension ToolExecutor {
     fileprivate static func cropping(_ image: CIImage, crop: Crop) -> CIImage {
         guard !crop.isIdentity else { return image }
         let e = image.extent
-        guard e.width > 0, e.height > 0, e.width.isFinite, e.height.isFinite else { return image }
+        guard e.width > 0, e.height > 0, e.width.isFinite, !e.width.isNaN, e.height.isFinite, !e.height.isNaN else { return image }
         return image.cropped(to: CGRect(
-            x: e.origin.x + crop.left * e.width,
-            y: e.origin.y + crop.bottom * e.height,
+            x: e.origin.x + crop.safeLeft * e.width,
+            y: e.origin.y + crop.safeBottom * e.height,
             width: max(1, crop.visibleWidthFraction * e.width),
             height: max(1, crop.visibleHeightFraction * e.height)))
     }

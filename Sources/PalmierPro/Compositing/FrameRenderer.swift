@@ -267,10 +267,10 @@ enum FrameRenderer {
 
         let crop = clip.cropAt(frame: frame)
         if !crop.isIdentity {
-            let left = (crop.left.isFinite && !crop.left.isNaN) ? crop.left : 0
-            let top = (crop.top.isFinite && !crop.top.isNaN) ? crop.top : 0
-            let wFrac = (crop.visibleWidthFraction.isFinite && !crop.visibleWidthFraction.isNaN) ? max(0.001, crop.visibleWidthFraction) : 1.0
-            let hFrac = (crop.visibleHeightFraction.isFinite && !crop.visibleHeightFraction.isNaN) ? max(0.001, crop.visibleHeightFraction) : 1.0
+            let left = crop.safeLeft
+            let top = crop.safeTop
+            let wFrac = crop.visibleWidthFraction
+            let hFrac = crop.visibleHeightFraction
             let natW = (layer.natSize.width.isFinite && layer.natSize.width > 0) ? layer.natSize.width : 1920
             let natH = (layer.natSize.height.isFinite && layer.natSize.height > 0) ? layer.natSize.height : 1080
 

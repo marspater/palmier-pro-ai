@@ -626,9 +626,43 @@ struct Crop: Codable, Sendable, Equatable {
     var right: Double = 0
     var bottom: Double = 0
 
-    var isIdentity: Bool { left == 0 && top == 0 && right == 0 && bottom == 0 }
-    var visibleWidthFraction: Double { max(0, 1 - left - right) }
-    var visibleHeightFraction: Double { max(0, 1 - top - bottom) }
+    var isIdentity: Bool {
+        let l = (left.isFinite && !left.isNaN) ? left : 0
+        let t = (top.isFinite && !top.isNaN) ? top : 0
+        let r = (right.isFinite && !right.isNaN) ? right : 0
+        let b = (bottom.isFinite && !bottom.isNaN) ? bottom : 0
+        return l == 0 && t == 0 && r == 0 && b == 0
+    }
+
+    var safeLeft: Double {
+        guard left.isFinite, !left.isNaN else { return 0 }
+        return min(0.99, max(0, left))
+    }
+
+    var safeTop: Double {
+        guard top.isFinite, !top.isNaN else { return 0 }
+        return min(0.99, max(0, top))
+    }
+
+    var safeRight: Double {
+        guard right.isFinite, !right.isNaN else { return 0 }
+        return min(0.99, max(0, right))
+    }
+
+    var safeBottom: Double {
+        guard bottom.isFinite, !bottom.isNaN else { return 0 }
+        return min(0.99, max(0, bottom))
+    }
+
+    var visibleWidthFraction: Double {
+        let w = 1.0 - safeLeft - safeRight
+        return max(0.01, w)
+    }
+
+    var visibleHeightFraction: Double {
+        let h = 1.0 - safeTop - safeBottom
+        return max(0.01, h)
+    }
 }
 
 /// Aspect-ratio constraint for the Crop overlay.
