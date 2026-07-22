@@ -168,10 +168,10 @@ struct LocalAgentClient: AgentClient {
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
-        // Sanitize model string: Strip any leading "google/", "models/", or whitespace
         let sanitizedModel = ChatAIModel.sanitize(modelString: modelID)
 
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(sanitizedModel):streamGenerateContent?alt=sse&key=\(apiKey)") else {
+        // Exact Google AI Studio REST v1beta streaming endpoint (without alt=sse query param which triggers 404)
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(sanitizedModel):streamGenerateContent?key=\(apiKey)") else {
             throw PalmierClientError.upstream("Invalid Google AI endpoint URL for model \(sanitizedModel)")
         }
 
@@ -186,7 +186,7 @@ struct LocalAgentClient: AgentClient {
         }
 
         let body: [String: Any] = [
-            "system_instruction": ["parts": [["text": system]]],
+            "systemInstruction": ["parts": [["text": system]]],
             "contents": contents
         ]
 
@@ -200,40 +200,48 @@ struct LocalAgentClient: AgentClient {
             var errorBody = ""
             for try await line in bytes.lines { errorBody += line }
 
-            if http.statusCode == 404 {
-                let notice = """
-                ⚠️ Gemini Model Not Found (HTTP 404).
-
-                The endpoint model ID '\(sanitizedModel)' was not recognized by Google AI Studio.
-                Valid models include:
-                • gemini-2.0-flash
-                • gemini-1.5-pro
-                • gemini-1.5-flash
-                • gemini-2.0-flash-lite
-
-                Please select a valid model in the chat header or Settings ➔ Models.
-                """
-                continuation.yield(.textDelta(notice))
-                continuation.yield(.messageStop(stopReason: .endTurn))
-                return
+            // Extract Google AI Studio JSON error details if present
+            var apiErrorMessage = errorBody
+            var apiErrorStatus = "\(http.statusCode)"
+            if let data = errorBody.data(using: .utf8),
+               let jsonObj = try? JSONSerialization.jsonObject(with: data) {
+                let errDict: [String: Any]? = {
+                    if let dict = jsonObj as? [String: Any] {
+                        return dict["error"] as? [String: Any]
+                    } else if let arr = jsonObj as? [[String: Any]], let first = arr.first {
+                        return first["error"] as? [String: Any]
+                    }
+                    return nil
+                }()
+                if let errDict {
+                    if let msg = errDict["message"] as? String { apiErrorMessage = msg }
+                    if let status = errDict["status"] as? String { apiErrorStatus = status }
+                }
             }
 
             if http.statusCode == 429 {
                 let notice = """
-                ⚠️ Google AI Gemini Rate Limit Exceeded (HTTP 429 / 5 RPM Limit).
+                ⚠️ Google AI Studio Error (HTTP 429 - \(apiErrorStatus)):
+                \(apiErrorMessage)
 
-                The Google AI Studio Free Tier enforces a 5 Requests Per Minute (5 RPM) ceiling. Rapid requests temporarily triggered a short rate-limit window.
+                The Google AI Studio Free Tier enforces a 5 Requests Per Minute (5 RPM) limit.
 
-                To continue:
-                • Wait ~60 seconds for the rate limit window to reset.
-                • Or switch to another model (Claude, OpenRouter, LM Studio, MLX) using the model picker in the header.
+                Suggestions:
+                • Wait ~60 seconds for the quota window to reset.
+                • Or switch to another model (Claude, OpenRouter, LM Studio, MLX) in the header selector.
                 """
                 continuation.yield(.textDelta(notice))
                 continuation.yield(.messageStop(stopReason: .endTurn))
                 return
             }
 
-            throw PalmierClientError.upstream("Google AI API error (\(http.statusCode)): \(errorBody.prefix(300))")
+            let notice = """
+            ⚠️ Google AI Studio Error (HTTP \(http.statusCode) - \(apiErrorStatus)):
+            \(apiErrorMessage)
+            """
+            continuation.yield(.textDelta(notice))
+            continuation.yield(.messageStop(stopReason: .endTurn))
+            return
         }
 
         for try await line in bytes.lines {
