@@ -34,14 +34,24 @@ struct LocalAgentClient: AgentClient {
         let selectedModel = await router.selectedChatModel
 
         switch selectedModel {
-        case .gemini20Flash, .gemini15Pro:
+        case .gemini20Flash, .gemini15Pro, .gemini15Flash, .gemini20FlashLite:
             let googleKey = await router.googleAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if googleKey.isEmpty {
                 continuation.yield(.textDelta("⚠️ Google AI API Key is missing. Please enter your Gemini API Key in Settings ➔ Models, or pick another model from the model selector above."))
                 continuation.yield(.messageStop(stopReason: .endTurn))
                 return
             }
-            let modelID = selectedModel == .gemini15Pro ? "gemini-1.5-pro" : "gemini-2.0-flash"
+
+            let modelID: String
+            switch selectedModel {
+            case .gemini20Flash: modelID = "gemini-2.0-flash"
+            case .gemini15Pro: modelID = "gemini-1.5-pro"
+            case .gemini15Flash: modelID = "gemini-1.5-flash"
+            case .gemini20FlashLite: modelID = "gemini-2.0-flash-lite"
+            default: modelID = "gemini-2.0-flash"
+            }
+
+            await router.throttleGoogleAIRequest()
             try await streamGoogleAI(modelID: modelID, apiKey: googleKey, system: system, messages: messages, continuation: continuation)
 
         case .claudeSonnet, .claudeHaiku:
@@ -158,8 +168,11 @@ struct LocalAgentClient: AgentClient {
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):streamGenerateContent?alt=sse&key=\(apiKey)") else {
-            throw PalmierClientError.upstream("Invalid Google AI endpoint")
+        // Sanitize model string: Strip any leading "google/", "models/", or whitespace
+        let sanitizedModel = ChatAIModel.sanitize(modelString: modelID)
+
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(sanitizedModel):streamGenerateContent?alt=sse&key=\(apiKey)") else {
+            throw PalmierClientError.upstream("Invalid Google AI endpoint URL for model \(sanitizedModel)")
         }
 
         var contents: [[String: Any]] = []
@@ -187,14 +200,33 @@ struct LocalAgentClient: AgentClient {
             var errorBody = ""
             for try await line in bytes.lines { errorBody += line }
 
+            if http.statusCode == 404 {
+                let notice = """
+                ⚠️ Gemini Model Not Found (HTTP 404).
+
+                The endpoint model ID '\(sanitizedModel)' was not recognized by Google AI Studio.
+                Valid models include:
+                • gemini-2.0-flash
+                • gemini-1.5-pro
+                • gemini-1.5-flash
+                • gemini-2.0-flash-lite
+
+                Please select a valid model in the chat header or Settings ➔ Models.
+                """
+                continuation.yield(.textDelta(notice))
+                continuation.yield(.messageStop(stopReason: .endTurn))
+                return
+            }
+
             if http.statusCode == 429 {
                 let notice = """
-                ⚠️ Google AI Gemini Rate Limit Exceeded (HTTP 429 / Too Many Requests).
+                ⚠️ Google AI Gemini Rate Limit Exceeded (HTTP 429 / 5 RPM Limit).
 
-                Your API key reached its requests-per-minute or quota limit in Google AI Studio.
-                You can:
-                • Switch to another model (Claude, OpenRouter, LM Studio, MLX) using the model picker in the chat header.
-                • Try again in a few moments.
+                The Google AI Studio Free Tier enforces a 5 Requests Per Minute (5 RPM) ceiling. Rapid requests temporarily triggered a short rate-limit window.
+
+                To continue:
+                • Wait ~60 seconds for the rate limit window to reset.
+                • Or switch to another model (Claude, OpenRouter, LM Studio, MLX) using the model picker in the header.
                 """
                 continuation.yield(.textDelta(notice))
                 continuation.yield(.messageStop(stopReason: .endTurn))

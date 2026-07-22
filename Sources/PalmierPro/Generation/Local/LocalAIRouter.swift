@@ -27,6 +27,8 @@ enum LocalAIProvider: String, CaseIterable, Identifiable, Codable, Sendable {
 enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
     case gemini20Flash = "gemini-2.0-flash"
     case gemini15Pro = "gemini-1.5-pro"
+    case gemini15Flash = "gemini-1.5-flash"
+    case gemini20FlashLite = "gemini-2.0-flash-lite"
     case claudeSonnet = "claude-3-5-sonnet"
     case claudeHaiku = "claude-3-5-haiku"
     case gpt4o = "gpt-4o"
@@ -39,6 +41,8 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .gemini20Flash: return "Google Gemini 2.0 Flash"
         case .gemini15Pro: return "Google Gemini 1.5 Pro"
+        case .gemini15Flash: return "Google Gemini 1.5 Flash"
+        case .gemini20FlashLite: return "Google Gemini 2.0 Flash Lite"
         case .claudeSonnet: return "Anthropic Claude 3.5 Sonnet"
         case .claudeHaiku: return "Anthropic Claude 3.5 Haiku"
         case .gpt4o: return "OpenAI / OpenRouter GPT-4o"
@@ -51,6 +55,8 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .gemini20Flash: return "Gemini 2.0 Flash"
         case .gemini15Pro: return "Gemini 1.5 Pro"
+        case .gemini15Flash: return "Gemini 1.5 Flash"
+        case .gemini20FlashLite: return "Gemini 2.0 Flash Lite"
         case .claudeSonnet: return "Claude 3.5 Sonnet"
         case .claudeHaiku: return "Claude 3.5 Haiku"
         case .gpt4o: return "GPT-4o"
@@ -61,11 +67,23 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var iconName: String {
         switch self {
-        case .gemini20Flash, .gemini15Pro: return "sparkles"
+        case .gemini20Flash, .gemini15Pro, .gemini15Flash, .gemini20FlashLite: return "sparkles"
         case .claudeSonnet, .claudeHaiku: return "brain"
         case .gpt4o: return "bolt"
         case .lmStudio, .mlx: return "cpu"
         }
+    }
+
+    /// Sanitizes model string to remove vendor prefixes like "google/" or "models/"
+    static func sanitize(modelString: String) -> String {
+        var str = modelString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if str.lowercased().hasPrefix("google/") {
+            str = String(str.dropFirst("google/".count))
+        }
+        if str.lowercased().hasPrefix("models/") {
+            str = String(str.dropFirst("models/".count))
+        }
+        return str
     }
 }
 
@@ -79,6 +97,7 @@ final class LocalAIRouter: ObservableObject {
         static let lmStudioEndpoint = "PalmierLocalAILMStudioEndpoint"
         static let comfyEndpoint = "PalmierLocalAIComfyEndpoint"
         static let googleAIKey = "PalmierGoogleAIAPIKey"
+        static let customGeminiModel = "PalmierCustomGeminiModel"
         static let anthropicAPIKey = "PalmierAnthropicAPIKey"
         static let openAIAPIKey = "PalmierOpenAIAPIKey"
         static let selectedChatModel = "PalmierSelectedChatModel"
@@ -90,6 +109,13 @@ final class LocalAIRouter: ObservableObject {
 
     @Published var selectedChatModel: ChatAIModel {
         didSet { UserDefaults.standard.set(selectedChatModel.rawValue, forKey: Keys.selectedChatModel) }
+    }
+
+    @Published var customGeminiModel: String {
+        didSet {
+            let sanitized = ChatAIModel.sanitize(modelString: customGeminiModel)
+            UserDefaults.standard.set(sanitized, forKey: Keys.customGeminiModel)
+        }
     }
 
     @Published var mlxEndpoint: String {
@@ -105,22 +131,25 @@ final class LocalAIRouter: ObservableObject {
     }
 
     @Published var googleAIKey: String {
-        didSet { UserDefaults.standard.set(googleAIKey, forKey: Keys.googleAIKey) }
+        didSet { UserDefaults.standard.set(googleAIKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Keys.googleAIKey) }
     }
 
     @Published var anthropicAPIKey: String {
-        didSet { UserDefaults.standard.set(anthropicAPIKey, forKey: Keys.anthropicAPIKey) }
+        didSet { UserDefaults.standard.set(anthropicAPIKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Keys.anthropicAPIKey) }
     }
 
     @Published var openAIAPIKey: String {
-        didSet { UserDefaults.standard.set(openAIAPIKey, forKey: Keys.openAIAPIKey) }
+        didSet { UserDefaults.standard.set(openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Keys.openAIAPIKey) }
     }
+
+    private var lastGoogleAIRequestDate: Date?
 
     private init() {
         let savedProvider = UserDefaults.standard.string(forKey: Keys.activeProvider)
             .flatMap { LocalAIProvider(rawValue: $0) } ?? .localMetal
         let savedChatModel = UserDefaults.standard.string(forKey: Keys.selectedChatModel)
             .flatMap { ChatAIModel(rawValue: $0) } ?? .gemini20Flash
+        let savedCustomGemini = UserDefaults.standard.string(forKey: Keys.customGeminiModel) ?? "gemini-2.0-flash"
         let savedMLX = UserDefaults.standard.string(forKey: Keys.mlxEndpoint) ?? "http://localhost:8080"
         let savedLMStudio = UserDefaults.standard.string(forKey: Keys.lmStudioEndpoint) ?? "http://localhost:1234/v1"
         let savedComfy = UserDefaults.standard.string(forKey: Keys.comfyEndpoint) ?? "http://127.0.0.1:8188"
@@ -130,12 +159,25 @@ final class LocalAIRouter: ObservableObject {
 
         self.activeProvider = savedProvider
         self.selectedChatModel = savedChatModel
+        self.customGeminiModel = ChatAIModel.sanitize(modelString: savedCustomGemini)
         self.mlxEndpoint = savedMLX
         self.lmStudioEndpoint = savedLMStudio
         self.comfyEndpoint = savedComfy
-        self.googleAIKey = savedGoogleKey
-        self.anthropicAPIKey = savedAnthropicKey
-        self.openAIAPIKey = savedOpenAIKey
+        self.googleAIKey = savedGoogleKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.anthropicAPIKey = savedAnthropicKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.openAIAPIKey = savedOpenAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Enforces a minimum interval (2.5s) between Google AI Studio requests to prevent 429 domino retries.
+    func throttleGoogleAIRequest() async {
+        if let lastDate = lastGoogleAIRequestDate {
+            let elapsed = Date().timeIntervalSince(lastDate)
+            if elapsed < 2.5 {
+                let sleepNanoseconds = UInt64((2.5 - elapsed) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: sleepNanoseconds)
+            }
+        }
+        lastGoogleAIRequestDate = Date()
     }
 
     // MARK: - Upscale Dispatch
