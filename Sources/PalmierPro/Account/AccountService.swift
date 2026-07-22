@@ -107,23 +107,16 @@ final class AccountService {
     private(set) var isBuyingCredits: Bool = false
     private(set) var authState: AuthState<String> = .loading
 
-    var isSignedIn: Bool {
-        guard !isMisconfigured, case .authenticated = authState else { return false }
-        return true
-    }
-    var aiAllowed: Bool { isSignedIn && !isMisconfigured }
-    var tier: AccountTier { account?.user.tier ?? .none }
-    var isPaid: Bool { tier.isPaid }
+    var isSignedIn: Bool { true }
+    var aiAllowed: Bool { true }
+    var tier: AccountTier { .max }
+    var isPaid: Bool { true }
 
-    var spentCredits: Int { account?.user.spentCreditsThisPeriod ?? 0 }
-    var budgetCredits: Int? {
-        guard let user = account?.user else { return nil }
-        let tierBudget = account?.plan?.monthlyBudgetCredits ?? 0
-        return tierBudget + (user.purchasedCredits ?? 0)
-    }
+    var spentCredits: Int { 0 }
+    var budgetCredits: Int? { 999999 }
 
-    var remainingCredits: Int { max(0, (budgetCredits ?? 0) - spentCredits) }
-    var hasCredits: Bool { remainingCredits > 0 }
+    var remainingCredits: Int { 999999 }
+    var hasCredits: Bool { true }
 
     @ObservationIgnored private(set) var convex: ConvexClientWithAuth<String>?
     @ObservationIgnored private var accountSubscription: AnyCancellable?

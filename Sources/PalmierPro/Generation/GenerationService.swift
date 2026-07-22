@@ -427,6 +427,43 @@ final class GenerationService {
         Log.generation.notice("run \(runId) start model=\(genInput.model) placeholders=\(placeholders.count)")
         defer { Log.generation.notice("run \(runId) settled") }
 
+        // Local Metal Video/Image Upscaling Intercept
+        if case .upscale = params, let primaryPlaceholder = placeholders.first {
+            do {
+                for placeholder in placeholders {
+                    updateGenerationMetadata(placeholder, editor: editor, status: .generating)
+                }
+
+                let sourceURL: URL
+                if let refAssetId = primaryPlaceholder.generationInput?.imageURLAssetIds?.first,
+                   let asset = editor.mediaAssets.first(where: { $0.id == refAssetId }) {
+                    sourceURL = asset.url
+                } else {
+                    sourceURL = primaryPlaceholder.url
+                }
+
+                let outputURL = primaryPlaceholder.url
+                let _ = try await LocalAIRouter.shared.processUpscale(
+                    sourceURL: sourceURL,
+                    outputURL: outputURL,
+                    scaleFactor: 2.0
+                )
+
+                updateGenerationMetadata(primaryPlaceholder, editor: editor, status: .none)
+                editor.importMediaAsset(primaryPlaceholder, skipAppend: true)
+                let _ = await editor.finalizeImportedAsset(primaryPlaceholder)
+                editor.appendGenerationLog(for: primaryPlaceholder)
+                onComplete?(primaryPlaceholder)
+                return
+            } catch {
+                for placeholder in placeholders {
+                    updateGenerationMetadata(placeholder, editor: editor, status: .failed(error.localizedDescription))
+                }
+                onFailure?()
+                return
+            }
+        }
+
         let jobId: String
         do {
             jobId = try await GenerationBackend.submit(

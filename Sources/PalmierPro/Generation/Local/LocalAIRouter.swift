@@ -1,0 +1,200 @@
+import Foundation
+import Combine
+
+/// Configurable Local AI Router for Palmier Pro.
+/// Routes upscaling and generative requests to local Metal hardware, MLX inference,
+/// LM Studio, ComfyUI, or Google AI Pro (Gemini API) cloud fallback.
+enum LocalAIProvider: String, CaseIterable, Identifiable, Codable, Sendable {
+    case localMetal = "local_metal"
+    case mlxInference = "mlx_inference"
+    case lmStudio = "lm_studio"
+    case comfyUI = "comfy_ui"
+    case googleAI = "google_ai"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .localMetal: return "Apple Silicon Metal (Local M-Series)"
+        case .mlxInference: return "MLX Inference Server (Local Port 8080)"
+        case .lmStudio: return "LM Studio Local API (Port 1234)"
+        case .comfyUI: return "ComfyUI Local API (Port 8188)"
+        case .googleAI: return "Google AI Pro (Gemini API Cloud)"
+        }
+    }
+}
+
+@MainActor
+final class LocalAIRouter: ObservableObject {
+    static let shared = LocalAIRouter()
+
+    private enum Keys {
+        static let activeProvider = "PalmierLocalAIActiveProvider"
+        static let mlxEndpoint = "PalmierLocalAIMLXEndpoint"
+        static let lmStudioEndpoint = "PalmierLocalAILMStudioEndpoint"
+        static let comfyEndpoint = "PalmierLocalAIComfyEndpoint"
+        static let googleAIKey = "PalmierGoogleAIAPIKey"
+    }
+
+    @Published var activeProvider: LocalAIProvider {
+        didSet {
+            UserDefaults.standard.set(activeProvider.rawValue, forKey: Keys.activeProvider)
+        }
+    }
+
+    @Published var mlxEndpoint: String {
+        didSet {
+            UserDefaults.standard.set(mlxEndpoint, forKey: Keys.mlxEndpoint)
+        }
+    }
+
+    @Published var lmStudioEndpoint: String {
+        didSet {
+            UserDefaults.standard.set(lmStudioEndpoint, forKey: Keys.lmStudioEndpoint)
+        }
+    }
+
+    @Published var comfyEndpoint: String {
+        didSet {
+            UserDefaults.standard.set(comfyEndpoint, forKey: Keys.comfyEndpoint)
+        }
+    }
+
+    @Published var googleAIKey: String {
+        didSet {
+            UserDefaults.standard.set(googleAIKey, forKey: Keys.googleAIKey)
+        }
+    }
+
+    private init() {
+        let savedProvider = UserDefaults.standard.string(forKey: Keys.activeProvider)
+            .flatMap { LocalAIProvider(rawValue: $0) } ?? .localMetal
+        let savedMLX = UserDefaults.standard.string(forKey: Keys.mlxEndpoint) ?? "http://localhost:8080"
+        let savedLMStudio = UserDefaults.standard.string(forKey: Keys.lmStudioEndpoint) ?? "http://localhost:1234/v1"
+        let savedComfy = UserDefaults.standard.string(forKey: Keys.comfyEndpoint) ?? "http://127.0.0.1:8188"
+        let savedGoogleKey = UserDefaults.standard.string(forKey: Keys.googleAIKey) ?? ""
+
+        self.activeProvider = savedProvider
+        self.mlxEndpoint = savedMLX
+        self.lmStudioEndpoint = savedLMStudio
+        self.comfyEndpoint = savedComfy
+        self.googleAIKey = savedGoogleKey
+    }
+
+    // MARK: - Upscale Dispatch
+
+    /// Dispatches an upscale request to the local Metal engine or configured provider.
+    func processUpscale(
+        sourceURL: URL,
+        outputURL: URL,
+        scaleFactor: CGFloat = 2.0,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> URL {
+        // Upscaling defaults to local Metal hardware for zero latency
+        return try await LocalUpscaleEngine.shared.upscale(
+            inputURL: sourceURL,
+            outputURL: outputURL,
+            scaleFactor: scaleFactor,
+            progress: progress
+        )
+    }
+
+    // MARK: - Generative Dispatch & Fallback
+
+    /// Generates content locally or via Google AI Pro fallback
+    func processGeneration(
+        prompt: String,
+        model: String,
+        assetType: ClipType
+    ) async throws -> String {
+        switch activeProvider {
+        case .localMetal, .mlxInference:
+            return try await queryLocalServer(endpoint: "\(mlxEndpoint)/v1/generate", prompt: prompt, model: model)
+        case .lmStudio:
+            return try await queryLMStudio(prompt: prompt, model: model)
+        case .comfyUI:
+            return try await queryComfyUI(prompt: prompt)
+        case .googleAI:
+            return try await queryGoogleAI(prompt: prompt)
+        }
+    }
+
+    private func queryLocalServer(endpoint: String, prompt: String, model: String) async throws -> String {
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["prompt": prompt, "model": model]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        if let responseString = String(data: data, encoding: .utf8) {
+            return responseString
+        }
+        throw URLError(.cannotParseResponse)
+    }
+
+    private func queryLMStudio(prompt: String, model: String) async throws -> String {
+        let endpoint = "\(lmStudioEndpoint)/chat/completions"
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "model": model.isEmpty ? "local-model" : model,
+            "messages": [["role": "user", "content": prompt]]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let message = choices.first?["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return content
+        }
+        throw URLError(.cannotParseResponse)
+    }
+
+    private func queryComfyUI(prompt: String) async throws -> String {
+        let endpoint = "\(comfyEndpoint)/prompt"
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["prompt": ["3": ["inputs": ["text": prompt], "class_type": "CLIPTextEncode"]]]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let promptId = json["prompt_id"] as? String {
+            return promptId
+        }
+        throw URLError(.cannotParseResponse)
+    }
+
+    private func queryGoogleAI(prompt: String) async throws -> String {
+        guard !googleAIKey.isEmpty else {
+            throw NSError(domain: "LocalAIRouter", code: 401, userInfo: [NSLocalizedDescriptionKey: "Google AI API Key missing. Please set it in Settings -> Models."])
+        }
+        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(googleAIKey)"
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "contents": [["parts": [["text": prompt]]]]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let candidates = json["candidates"] as? [[String: Any]],
+           let content = candidates.first?["content"] as? [String: Any],
+           let parts = content["parts"] as? [[String: Any]],
+           let text = parts.first?["text"] as? String {
+            return text
+        }
+        throw URLError(.cannotParseResponse)
+    }
+}

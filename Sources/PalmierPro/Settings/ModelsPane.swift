@@ -38,8 +38,12 @@ struct ModelsPane: View {
         ].filter { !$0.rows.isEmpty }
     }
 
+    @StateObject private var router = LocalAIRouter.shared
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+            localAISection
+
             searchBar
 
             if sections.isEmpty {
@@ -50,6 +54,76 @@ struct ModelsPane: View {
             } else {
                 ForEach(sections) { section in
                     sectionView(section)
+                }
+            }
+        }
+    }
+
+    private var localAISection: some View {
+        SettingsSection(title: "Local Hardware & Custom AI Backends") {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                HStack {
+                    Text("Generative & Upscale Provider")
+                        .font(.system(size: AppTheme.FontSize.md))
+                        .foregroundStyle(AppTheme.Text.primaryColor)
+                    Spacer()
+                    Picker("", selection: $router.activeProvider) {
+                        ForEach(LocalAIProvider.allCases) { provider in
+                            Text(provider.displayName).tag(provider)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                if router.activeProvider == .mlxInference {
+                    HStack {
+                        Text("MLX Server Endpoint")
+                            .font(.system(size: AppTheme.FontSize.sm))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Spacer()
+                        TextField("http://localhost:8080", text: $router.mlxEndpoint)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220)
+                    }
+                } else if router.activeProvider == .lmStudio {
+                    HStack {
+                        Text("LM Studio Endpoint")
+                            .font(.system(size: AppTheme.FontSize.sm))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Spacer()
+                        TextField("http://localhost:1234/v1", text: $router.lmStudioEndpoint)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220)
+                    }
+                } else if router.activeProvider == .comfyUI {
+                    HStack {
+                        Text("ComfyUI API Endpoint")
+                            .font(.system(size: AppTheme.FontSize.sm))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Spacer()
+                        TextField("http://127.0.0.1:8188", text: $router.comfyEndpoint)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220)
+                    }
+                } else if router.activeProvider == .googleAI {
+                    HStack {
+                        Text("Google AI Pro (Gemini) API Key")
+                            .font(.system(size: AppTheme.FontSize.sm))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Spacer()
+                        SecureField("AIzaSy...", text: $router.googleAIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220)
+                    }
+                }
+
+                HStack(spacing: AppTheme.Spacing.xs) {
+                    Image(systemName: "cpu")
+                        .font(.system(size: AppTheme.FontSize.xs))
+                        .foregroundStyle(AppTheme.Accent.primary)
+                    Text("Upscaling is processed 100% locally on your Mac M-series GPU via Metal Performance Shaders.")
+                        .font(.system(size: AppTheme.FontSize.xs))
+                        .foregroundStyle(AppTheme.Text.tertiaryColor)
                 }
             }
         }
