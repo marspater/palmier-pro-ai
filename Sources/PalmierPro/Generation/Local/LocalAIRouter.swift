@@ -25,10 +25,13 @@ enum LocalAIProvider: String, CaseIterable, Identifiable, Codable, Sendable {
 }
 
 enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
-    case gemini20Flash = "gemini-2.0-flash"
-    case gemini15Pro = "gemini-1.5-pro"
-    case gemini15Flash = "gemini-1.5-flash"
-    case gemini20FlashLite = "gemini-2.0-flash-lite"
+    case gemini35Flash = "gemini-3.5-flash"
+    case gemini25Flash = "gemini-2.5-flash"
+    case veo31Fast = "veo-3.1-fast-generate-001"
+    case veo31Lite = "veo-3.1-lite-generate-preview"
+    case geminiOmniFlash = "gemini-omni-flash"
+    case gemini31FlashImage = "gemini-3.1-flash-image"
+    case gemini3ProImage = "gemini-3-pro-image"
     case claudeSonnet = "claude-3-5-sonnet"
     case claudeHaiku = "claude-3-5-haiku"
     case gpt4o = "gpt-4o"
@@ -39,10 +42,13 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .gemini20Flash: return "Google Gemini 2.0 Flash"
-        case .gemini15Pro: return "Google Gemini 1.5 Pro"
-        case .gemini15Flash: return "Google Gemini 1.5 Flash"
-        case .gemini20FlashLite: return "Google Gemini 2.0 Flash Lite"
+        case .gemini35Flash: return "Google Gemini 3.5 Flash (Recommended)"
+        case .gemini25Flash: return "Google Gemini 2.5 Flash (Video Analysis)"
+        case .veo31Fast: return "Google Veo 3.1 Fast (Video Generation)"
+        case .veo31Lite: return "Google Veo 3.1 Lite (Preview Video)"
+        case .geminiOmniFlash: return "Google Gemini Omni Flash (Media Gen & Edit)"
+        case .gemini31FlashImage: return "Google Gemini 3.1 Flash Image (Nano Banana 2)"
+        case .gemini3ProImage: return "Google Gemini 3 Pro Image (Nano Banana Pro)"
         case .claudeSonnet: return "Anthropic Claude 3.5 Sonnet"
         case .claudeHaiku: return "Anthropic Claude 3.5 Haiku"
         case .gpt4o: return "OpenAI / OpenRouter GPT-4o"
@@ -53,10 +59,13 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var shortName: String {
         switch self {
-        case .gemini20Flash: return "Gemini 2.0 Flash"
-        case .gemini15Pro: return "Gemini 1.5 Pro"
-        case .gemini15Flash: return "Gemini 1.5 Flash"
-        case .gemini20FlashLite: return "Gemini 2.0 Flash Lite"
+        case .gemini35Flash: return "Gemini 3.5 Flash"
+        case .gemini25Flash: return "Gemini 2.5 Flash"
+        case .veo31Fast: return "Veo 3.1 Fast"
+        case .veo31Lite: return "Veo 3.1 Lite"
+        case .geminiOmniFlash: return "Gemini Omni"
+        case .gemini31FlashImage: return "Gemini 3.1 Image"
+        case .gemini3ProImage: return "Gemini 3 Pro Image"
         case .claudeSonnet: return "Claude 3.5 Sonnet"
         case .claudeHaiku: return "Claude 3.5 Haiku"
         case .gpt4o: return "GPT-4o"
@@ -67,7 +76,9 @@ enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var iconName: String {
         switch self {
-        case .gemini20Flash, .gemini15Pro, .gemini15Flash, .gemini20FlashLite: return "sparkles"
+        case .gemini35Flash, .gemini25Flash, .geminiOmniFlash: return "sparkles"
+        case .veo31Fast, .veo31Lite: return "film"
+        case .gemini31FlashImage, .gemini3ProImage: return "photo"
         case .claudeSonnet, .claudeHaiku: return "brain"
         case .gpt4o: return "bolt"
         case .lmStudio, .mlx: return "cpu"
@@ -148,8 +159,8 @@ final class LocalAIRouter: ObservableObject {
         let savedProvider = UserDefaults.standard.string(forKey: Keys.activeProvider)
             .flatMap { LocalAIProvider(rawValue: $0) } ?? .localMetal
         let savedChatModel = UserDefaults.standard.string(forKey: Keys.selectedChatModel)
-            .flatMap { ChatAIModel(rawValue: $0) } ?? .gemini20Flash
-        let savedCustomGemini = UserDefaults.standard.string(forKey: Keys.customGeminiModel) ?? "gemini-2.0-flash"
+            .flatMap { ChatAIModel(rawValue: $0) } ?? .gemini35Flash
+        let savedCustomGemini = UserDefaults.standard.string(forKey: Keys.customGeminiModel) ?? "gemini-3.5-flash"
         let savedMLX = UserDefaults.standard.string(forKey: Keys.mlxEndpoint) ?? "http://localhost:8080"
         let savedLMStudio = UserDefaults.standard.string(forKey: Keys.lmStudioEndpoint) ?? "http://localhost:1234/v1"
         let savedComfy = UserDefaults.standard.string(forKey: Keys.comfyEndpoint) ?? "http://127.0.0.1:8188"

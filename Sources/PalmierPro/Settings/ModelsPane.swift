@@ -89,7 +89,7 @@ struct ModelsPane: View {
                             Text("Google AI Studio (Gemini) Key")
                                 .font(.system(size: AppTheme.FontSize.sm, weight: .medium))
                                 .foregroundStyle(AppTheme.Text.primaryColor)
-                            Text("Used for Gemini 2.0 Flash & Gemini 1.5 Pro")
+                            Text("Used for Gemini 3.5 Flash, Gemini 2.5 Flash, Veo 3.1 & Nano Banana")
                                 .font(.system(size: AppTheme.FontSize.xs))
                                 .foregroundStyle(AppTheme.Text.tertiaryColor)
                         }

@@ -34,7 +34,7 @@ struct LocalAgentClient: AgentClient {
         let selectedModel = await router.selectedChatModel
 
         switch selectedModel {
-        case .gemini20Flash, .gemini15Pro, .gemini15Flash, .gemini20FlashLite:
+        case .gemini35Flash, .gemini25Flash, .veo31Fast, .veo31Lite, .geminiOmniFlash, .gemini31FlashImage, .gemini3ProImage:
             let googleKey = await router.googleAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if googleKey.isEmpty {
                 continuation.yield(.textDelta("⚠️ Google AI API Key is missing. Please enter your Gemini API Key in Settings ➔ Models, or pick another model from the model selector above."))
@@ -42,15 +42,7 @@ struct LocalAgentClient: AgentClient {
                 return
             }
 
-            let modelID: String
-            switch selectedModel {
-            case .gemini20Flash: modelID = "gemini-2.0-flash"
-            case .gemini15Pro: modelID = "gemini-1.5-pro"
-            case .gemini15Flash: modelID = "gemini-1.5-flash"
-            case .gemini20FlashLite: modelID = "gemini-2.0-flash-lite"
-            default: modelID = "gemini-2.0-flash"
-            }
-
+            let modelID = selectedModel.rawValue
             await router.throttleGoogleAIRequest()
             try await streamGoogleAI(modelID: modelID, apiKey: googleKey, system: system, messages: messages, continuation: continuation)
 
