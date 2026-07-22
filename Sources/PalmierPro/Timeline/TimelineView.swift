@@ -86,9 +86,25 @@ final class TimelineView: NSView {
         super.viewWillDraw()
     }
 
+    override func layout() {
+        guard self.window != nil, let superview = self.superview, superview.bounds.width > 0, superview.bounds.height > 0 else {
+            super.layout()
+            return
+        }
+        super.layout()
+        layoutCanvas()
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let safeW = (bounds.width.isFinite && !bounds.width.isNaN && bounds.width > 0) ? bounds.width : 1000.0
+        let safeH = (bounds.height.isFinite && !bounds.height.isNaN && bounds.height > 0) ? bounds.height : 500.0
+        return NSSize(width: safeW, height: safeH)
+    }
+
     private func layoutCanvas() {
+        guard self.window != nil, let superview = self.superview, superview.bounds.width > 0 else { return }
         let target = visibleRect
-        guard !target.isEmpty, canvas.frame != target else { return }
+        guard !target.isEmpty, target.width.isFinite, target.height.isFinite, canvas.frame != target else { return }
         canvas.frame = target
         canvas.needsDisplay = true
     }

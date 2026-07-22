@@ -76,6 +76,10 @@ final class PreviewNSView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func layout() {
+        guard self.window != nil, let superview = self.superview, superview.bounds.width > 0, superview.bounds.height > 0 else {
+            super.layout()
+            return
+        }
         super.layout()
         guard !bounds.isEmpty, bounds.width.isFinite, bounds.height.isFinite, bounds.width > 0, bounds.height > 0 else { return }
         CATransaction.begin()

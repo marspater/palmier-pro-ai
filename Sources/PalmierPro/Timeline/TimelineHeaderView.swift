@@ -30,6 +30,19 @@ final class TimelineHeaderView: NSView {
 
     override var isFlipped: Bool { true }
 
+    override func layout() {
+        guard self.window != nil, let superview = self.superview, superview.bounds.width > 0 else {
+            super.layout()
+            return
+        }
+        super.layout()
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let safeH = (bounds.height.isFinite && !bounds.height.isNaN && bounds.height > 0) ? bounds.height : 500.0
+        return NSSize(width: Layout.trackHeaderWidth, height: safeH)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
 

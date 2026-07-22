@@ -237,14 +237,16 @@ final class MediaAsset: Identifiable {
                     sourceWidth = Int(abs(corrected.width))
                     sourceHeight = Int(abs(corrected.height))
                 }
-                if let rate = try? await videoTrack.load(.nominalFrameRate), rate > 0 {
+                if let rate = try? await videoTrack.load(.nominalFrameRate), rate >= 1.0, rate.isFinite, !rate.isNaN {
                     sourceFPS = Double(rate)
+                } else {
+                    sourceFPS = 30.0
                 }
                 videoDuration = (try? await videoTrack.load(.timeRange))?.duration.seconds
             }
-            if let videoDuration {
+            if let videoDuration, videoDuration.isFinite, !videoDuration.isNaN, videoDuration > 0 {
                 duration = videoDuration
-            } else if let d = try? await avAsset.load(.duration) {
+            } else if let d = try? await avAsset.load(.duration), d.seconds.isFinite, !d.seconds.isNaN, d.seconds > 0 {
                 duration = d.seconds
             }
             if let audioTracks = try? await avAsset.loadTracks(withMediaType: .audio) {
