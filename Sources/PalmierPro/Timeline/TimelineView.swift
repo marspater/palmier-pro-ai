@@ -38,6 +38,29 @@ final class TimelineView: NSView {
 
     override var isFlipped: Bool { true }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        guard newSize.width.isFinite, !newSize.width.isNaN,
+              newSize.height.isFinite, !newSize.height.isNaN,
+              newSize.width > 0, newSize.height > 0 else {
+            let safeW = max(1.0, (bounds.width.isFinite && !bounds.width.isNaN) ? bounds.width : 1000)
+            let safeH = max(1.0, (bounds.height.isFinite && !bounds.height.isNaN) ? bounds.height : 500)
+            super.setFrameSize(NSSize(width: safeW, height: safeH))
+            return
+        }
+        super.setFrameSize(newSize)
+    }
+
+    override func setFrameOrigin(_ newOrigin: NSPoint) {
+        guard newOrigin.x.isFinite, !newOrigin.x.isNaN,
+              newOrigin.y.isFinite, !newOrigin.y.isNaN else {
+            let safeX = (frame.origin.x.isFinite && !frame.origin.x.isNaN) ? max(0, frame.origin.x) : 0
+            let safeY = (frame.origin.y.isFinite && !frame.origin.y.isNaN) ? max(0, frame.origin.y) : 0
+            super.setFrameOrigin(NSPoint(x: safeX, y: safeY))
+            return
+        }
+        super.setFrameOrigin(newOrigin)
+    }
+
     // MARK: - Viewport canvas
 
     // Invalidation routes to the canvas; the document view itself stays clean.

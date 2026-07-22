@@ -7,8 +7,7 @@ struct TimelineContainerView: NSViewRepresentable {
         let container = NSView()
 
         let headerView = TimelineHeaderView(editor: editor)
-        headerView.frame = NSRect(x: 0, y: 0, width: Layout.trackHeaderWidth, height: 400)
-        headerView.autoresizingMask = [.height]
+        headerView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(headerView)
 
         let scrollView = NSScrollView()
@@ -24,16 +23,31 @@ struct TimelineContainerView: NSViewRepresentable {
         scrollView.documentView = timelineView
         headerView.requestCanvasRedraw = { [weak timelineView] in timelineView?.needsDisplay = true }
 
-        scrollView.frame = NSRect(x: Layout.trackHeaderWidth, y: 0, width: 800, height: 400)
-        scrollView.autoresizingMask = [.width, .height]
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(scrollView)
 
         let border = NSView()
         border.wantsLayer = true
         border.layer?.backgroundColor = AppTheme.Border.primary.cgColor
-        border.frame = NSRect(x: Layout.trackHeaderWidth - 1, y: 0, width: 1, height: 400)
-        border.autoresizingMask = [.height]
+        border.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(border)
+
+        NSLayoutConstraint.activate([
+            headerView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            headerView.topAnchor.constraint(equalTo: container.topAnchor),
+            headerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            headerView.widthAnchor.constraint(equalToConstant: Layout.trackHeaderWidth),
+
+            scrollView.leadingAnchor.constraint(equalTo: headerView.trailingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+
+            border.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
+            border.topAnchor.constraint(equalTo: container.topAnchor),
+            border.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            border.widthAnchor.constraint(equalToConstant: 1)
+        ])
 
         context.coordinator.headerView = headerView
         context.coordinator.timelineView = timelineView
