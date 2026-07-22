@@ -7,7 +7,7 @@ struct TimelineContainerView: NSViewRepresentable {
         let container = NSView()
 
         let headerView = TimelineHeaderView(editor: editor)
-        headerView.frame = NSRect(x: 0, y: 0, width: Layout.trackHeaderWidth, height: 0)
+        headerView.frame = NSRect(x: 0, y: 0, width: Layout.trackHeaderWidth, height: 400)
         headerView.autoresizingMask = [.height]
         container.addSubview(headerView)
 
@@ -24,14 +24,14 @@ struct TimelineContainerView: NSViewRepresentable {
         scrollView.documentView = timelineView
         headerView.requestCanvasRedraw = { [weak timelineView] in timelineView?.needsDisplay = true }
 
-        scrollView.frame = NSRect(x: Layout.trackHeaderWidth, y: 0, width: 0, height: 0)
+        scrollView.frame = NSRect(x: Layout.trackHeaderWidth, y: 0, width: 800, height: 400)
         scrollView.autoresizingMask = [.width, .height]
         container.addSubview(scrollView)
 
         let border = NSView()
         border.wantsLayer = true
         border.layer?.backgroundColor = AppTheme.Border.primary.cgColor
-        border.frame = NSRect(x: Layout.trackHeaderWidth - 1, y: 0, width: 1, height: 0)
+        border.frame = NSRect(x: Layout.trackHeaderWidth - 1, y: 0, width: 1, height: 400)
         border.autoresizingMask = [.height]
         container.addSubview(border)
 

@@ -987,8 +987,10 @@ final class TimelineInputController {
             let delta = raw * Zoom.panSpeed
             let origin = scrollView.contentView.bounds.origin
             let maxX = max(0, view.bounds.width - scrollView.contentView.bounds.width)
-            let scrollX = min(maxX, max(0, origin.x - delta))
-            scrollView.contentView.setBoundsOrigin(NSPoint(x: scrollX, y: origin.y))
+            let rawScrollX = min(maxX, max(0, origin.x - delta))
+            let scrollX = rawScrollX.isFinite ? max(0, rawScrollX) : 0
+            let safeOriginY = origin.y.isFinite ? max(0, origin.y) : 0
+            scrollView.contentView.setBoundsOrigin(NSPoint(x: scrollX, y: safeOriginY))
             return
         }
 
@@ -1005,16 +1007,18 @@ final class TimelineInputController {
     private func applyZoom(factor: Double, anchorDocX: CGFloat) {
         let scrollOrigin = view.enclosingScrollView?.contentView.bounds.origin.x ?? 0
         let anchorViewportX = anchorDocX - scrollOrigin
-        let frameUnderCursor = max(0.0, anchorDocX / editor.zoomScale)
+        let frameUnderCursor = max(0.0, anchorDocX / max(0.001, editor.zoomScale))
 
         let newScale = max(editor.minZoomScale, min(Zoom.max, editor.zoomScale * factor))
         guard newScale != editor.zoomScale else { return }
         editor.zoomScale = newScale
 
         if let scrollView = view.enclosingScrollView {
-            let scrollX = max(0, frameUnderCursor * editor.zoomScale - anchorViewportX)
+            let rawScrollX = max(0, frameUnderCursor * editor.zoomScale - anchorViewportX)
+            let scrollX = rawScrollX.isFinite ? max(0, rawScrollX) : 0
             let origin = scrollView.contentView.bounds.origin
-            scrollView.contentView.setBoundsOrigin(NSPoint(x: scrollX, y: origin.y))
+            let safeOriginY = origin.y.isFinite ? max(0, origin.y) : 0
+            scrollView.contentView.setBoundsOrigin(NSPoint(x: scrollX, y: safeOriginY))
         }
 
         view.markZoomApplied()

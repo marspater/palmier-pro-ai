@@ -77,9 +77,12 @@ final class PreviewNSView: NSView {
 
     override func layout() {
         super.layout()
+        guard !bounds.isEmpty, bounds.width.isFinite, bounds.height.isFinite, bounds.width > 0, bounds.height > 0 else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        playerLayer.frame = bounds
+        if playerLayer.frame != bounds {
+            playerLayer.frame = bounds
+        }
         CATransaction.commit()
     }
 
