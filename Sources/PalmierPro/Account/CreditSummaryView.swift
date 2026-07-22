@@ -143,7 +143,7 @@ private struct CreditActionsPopover: View {
     }
 
     private func openAccountSettings() {
-        SettingsWindowController.shared.show(tab: .account)
+        SettingsWindowController.shared.show(tab: .models)
         isPresented = false
     }
 }

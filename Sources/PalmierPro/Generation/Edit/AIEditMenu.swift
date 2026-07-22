@@ -17,7 +17,7 @@ struct AIEditMenu: View {
                         ForEach(UpscaleModelConfig.models(for: asset.type)) { model in
                             if model.paidOnly && !AccountService.shared.isPaid {
                                 Button {
-                                    SettingsWindowController.shared.show(tab: .account)
+                                    SettingsWindowController.shared.show(tab: .models)
                                 } label: {
                                     Label("\(model.displayName) (Paid)", systemImage: "lock.fill")
                                 }

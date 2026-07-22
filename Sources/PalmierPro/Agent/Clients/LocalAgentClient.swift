@@ -1,8 +1,8 @@
 import Foundation
 
 /// A local, auto-configuring AI client conforming to AgentClient.
-/// Routes chat and reasoning requests seamlessly to local LLMs (LM Studio on port 1234, MLX on port 8080),
-/// Google AI Pro (Gemini 2.0), or returns clear status guidance without remote login requirements.
+/// Routes chat and reasoning requests seamlessly to Google AI Gemini, Anthropic Claude,
+/// OpenAI / OpenRouter, LM Studio, or MLX Inference based on user selection.
 struct LocalAgentClient: AgentClient {
     let model: AnthropicModel
 
@@ -31,53 +31,76 @@ struct LocalAgentClient: AgentClient {
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
         let router = await LocalAIRouter.shared
-        let googleKey = await router.googleAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lmStudioURL = await router.lmStudioEndpoint
-        let mlxURL = await router.mlxEndpoint
+        let selectedModel = await router.selectedChatModel
 
-        // 1. If Google AI Gemini API Key is provided in Settings -> Models, route to Gemini API
-        if !googleKey.isEmpty {
-            try await streamGoogleAI(
-                apiKey: googleKey,
-                system: system,
-                messages: messages,
-                continuation: continuation
-            )
-            return
-        }
+        switch selectedModel {
+        case .gemini20Flash, .gemini15Pro:
+            let googleKey = await router.googleAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if googleKey.isEmpty {
+                continuation.yield(.textDelta("⚠️ Google AI API Key is missing. Please enter your Gemini API Key in Settings ➔ Models, or pick another model from the model selector above."))
+                continuation.yield(.messageStop(stopReason: .endTurn))
+                return
+            }
+            let modelID = selectedModel == .gemini15Pro ? "gemini-1.5-pro" : "gemini-2.0-flash"
+            try await streamGoogleAI(modelID: modelID, apiKey: googleKey, system: system, messages: messages, continuation: continuation)
 
-        // 2. Check local OpenAI-compatible endpoints (LM Studio or MLX Inference)
-        let candidateEndpoints = [lmStudioURL, mlxURL, "http://localhost:1234/v1", "http://localhost:8080/v1"]
-        for endpointString in candidateEndpoints {
-            if let baseURL = URL(string: endpointString),
+        case .claudeSonnet, .claudeHaiku:
+            let key = await router.anthropicAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if key.isEmpty {
+                continuation.yield(.textDelta("⚠️ Anthropic API Key is missing. Please enter your Anthropic API Key in Settings ➔ Models, or pick another model above."))
+                continuation.yield(.messageStop(stopReason: .endTurn))
+                return
+            }
+            let model = selectedModel == .claudeHaiku ? AnthropicModel.haiku45 : AnthropicModel.sonnet5
+            let client = AnthropicClient(apiKey: key, model: model)
+            for try await event in client.stream(system: system, tools: tools, messages: messages) {
+                continuation.yield(event)
+            }
+
+        case .gpt4o:
+            let key = await router.openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if key.isEmpty {
+                continuation.yield(.textDelta("⚠️ OpenAI / OpenRouter API Key is missing. Please enter your API Key in Settings ➔ Models, or pick another model above."))
+                continuation.yield(.messageStop(stopReason: .endTurn))
+                return
+            }
+            let urlString = key.hasPrefix("sk-or-") ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions"
+            if let endpoint = URL(string: urlString) {
+                let worked = try await streamOpenAICompatible(endpoint: endpoint, apiKey: key, modelName: "gpt-4o", system: system, messages: messages, continuation: continuation)
+                if !worked {
+                    continuation.yield(.textDelta("⚠️ Failed to connect to OpenAI / OpenRouter API endpoint."))
+                    continuation.yield(.messageStop(stopReason: .endTurn))
+                }
+            }
+
+        case .lmStudio:
+            let lmURL = await router.lmStudioEndpoint
+            if let baseURL = URL(string: lmURL),
                let completionsURL = URL(string: "chat/completions", relativeTo: baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("/")) {
-                if let streamWorked = try? await streamOpenAICompatible(
-                    endpoint: completionsURL,
-                    system: system,
-                    messages: messages,
-                    continuation: continuation
-                ), streamWorked {
-                    return
+                let worked = try await streamOpenAICompatible(endpoint: completionsURL, apiKey: nil, modelName: "local-model", system: system, messages: messages, continuation: continuation)
+                if !worked {
+                    continuation.yield(.textDelta("⚠️ Could not connect to LM Studio at \(lmURL). Please ensure LM Studio local server is running on port 1234."))
+                    continuation.yield(.messageStop(stopReason: .endTurn))
+                }
+            }
+
+        case .mlx:
+            let mlxURL = await router.mlxEndpoint
+            if let baseURL = URL(string: mlxURL),
+               let completionsURL = URL(string: "chat/completions", relativeTo: baseURL.absoluteString.hasSuffix("/") ? baseURL : baseURL.appendingPathComponent("/")) {
+                let worked = try await streamOpenAICompatible(endpoint: completionsURL, apiKey: nil, modelName: "mlx-model", system: system, messages: messages, continuation: continuation)
+                if !worked {
+                    continuation.yield(.textDelta("⚠️ Could not connect to MLX Inference server at \(mlxURL). Please ensure MLX server is running on port 8080."))
+                    continuation.yield(.messageStop(stopReason: .endTurn))
                 }
             }
         }
-
-        // 3. Fallback: Friendly auto-configuration guide for local hardware & AI backends
-        let helpNotice = """
-        Connected to Palmier Pro Local AI Hardware Router.
-
-        To stream agent reasoning:
-        • Option A: Start LM Studio on port 1234 (http://localhost:1234/v1) or MLX on port 8080.
-        • Option B: Enter your Google AI Pro (Gemini) API Key or Anthropic API Key in Settings ➔ Models.
-
-        Your local Metal hardware handles all video/image upscaling automatically.
-        """
-        continuation.yield(.textDelta(helpNotice))
-        continuation.yield(.messageStop(stopReason: .endTurn))
     }
 
     private func streamOpenAICompatible(
         endpoint: URL,
+        apiKey: String?,
+        modelName: String,
         system: String,
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
@@ -89,7 +112,7 @@ struct LocalAgentClient: AgentClient {
         }
 
         let body: [String: Any] = [
-            "model": "local-model",
+            "model": modelName,
             "messages": openAIMessages,
             "stream": true,
             "temperature": 0.7
@@ -97,8 +120,11 @@ struct LocalAgentClient: AgentClient {
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.timeoutInterval = 5
+        request.timeoutInterval = 8
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let apiKey, !apiKey.isEmpty {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -126,12 +152,13 @@ struct LocalAgentClient: AgentClient {
     }
 
     private func streamGoogleAI(
+        modelID: String,
         apiKey: String,
         system: String,
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=\(apiKey)") else {
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):streamGenerateContent?alt=sse&key=\(apiKey)") else {
             throw PalmierClientError.upstream("Invalid Google AI endpoint")
         }
 
@@ -146,7 +173,7 @@ struct LocalAgentClient: AgentClient {
         }
 
         let body: [String: Any] = [
-            "systemInstruction": ["parts": [["text": system]]],
+            "system_instruction": ["parts": [["text": system]]],
             "contents": contents
         ]
 
@@ -159,6 +186,21 @@ struct LocalAgentClient: AgentClient {
         if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
             var errorBody = ""
             for try await line in bytes.lines { errorBody += line }
+
+            if http.statusCode == 429 {
+                let notice = """
+                ⚠️ Google AI Gemini Rate Limit Exceeded (HTTP 429 / Too Many Requests).
+
+                Your API key reached its requests-per-minute or quota limit in Google AI Studio.
+                You can:
+                • Switch to another model (Claude, OpenRouter, LM Studio, MLX) using the model picker in the chat header.
+                • Try again in a few moments.
+                """
+                continuation.yield(.textDelta(notice))
+                continuation.yield(.messageStop(stopReason: .endTurn))
+                return
+            }
+
             throw PalmierClientError.upstream("Google AI API error (\(http.statusCode)): \(errorBody.prefix(300))")
         }
 

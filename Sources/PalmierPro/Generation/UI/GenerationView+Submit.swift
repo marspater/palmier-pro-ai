@@ -194,7 +194,7 @@ extension GenerationView {
 
     private func submitGeneration() {
         if currentModelLocked {
-            SettingsWindowController.shared.show(tab: .account)
+            SettingsWindowController.shared.show(tab: .models)
             return
         }
         let audioDuration: Int = {

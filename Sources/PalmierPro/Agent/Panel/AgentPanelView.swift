@@ -83,6 +83,7 @@ struct AgentPanelView: View {
                     }
                 }
                 newTabButton
+                ChatModelPickerButton()
                 historyButton
                 ViewSkillsButton()
             }
@@ -281,13 +282,9 @@ struct AgentPanelView: View {
     private func errorCTA(for error: PalmierClientError?) -> ErrorCTA? {
         guard let error else { return nil }
         switch error {
-        case .unauthenticated:
-            return ErrorCTA(title: "Sign in") {
-                SettingsWindowController.shared.show(tab: .account)
-            }
-        case .insufficientCredits:
-            return ErrorCTA(title: "View plans") {
-                SettingsWindowController.shared.show(tab: .account)
+        case .unauthenticated, .insufficientCredits:
+            return ErrorCTA(title: "Configure Models") {
+                SettingsWindowController.shared.show(tab: .models)
             }
         case .upstream:
             return nil
@@ -359,11 +356,7 @@ struct AgentPanelView: View {
     }
 
     private func missingKeyPrimaryAction(account: AccountService) {
-        if !account.isSignedIn {
-            Task { await account.signInWithGoogle() }
-        } else {
-            SettingsWindowController.shared.show(tab: .account)
-        }
+        SettingsWindowController.shared.show(tab: .models)
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -502,5 +495,48 @@ private struct ChatTabView: View {
     private var displayTitle: String {
         let t = session.title
         return t.count > 20 ? String(t.prefix(20)) + "…" : t
+    }
+}
+
+private struct ChatModelPickerButton: View {
+    @ObservedObject private var router = LocalAIRouter.shared
+
+    var body: some View {
+        Menu {
+            ForEach(ChatAIModel.allCases) { model in
+                Button(action: { router.selectedChatModel = model }) {
+                    HStack {
+                        Text(model.displayName)
+                        if router.selectedChatModel == model {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: router.selectedChatModel.iconName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.Accent.primary)
+                Text(router.selectedChatModel.shortName)
+                    .font(.system(size: AppTheme.FontSize.xs, weight: .medium))
+                    .foregroundStyle(AppTheme.Text.primaryColor)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8))
+                    .foregroundStyle(AppTheme.Text.secondaryColor)
+            }
+            .padding(.horizontal, AppTheme.Spacing.xs)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                    .fill(Color.white.opacity(AppTheme.Opacity.subtle))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                    .strokeBorder(AppTheme.Border.primaryColor, lineWidth: AppTheme.BorderWidth.thin)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .help("Select AI Model")
     }
 }

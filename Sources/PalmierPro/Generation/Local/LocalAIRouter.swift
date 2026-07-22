@@ -24,6 +24,51 @@ enum LocalAIProvider: String, CaseIterable, Identifiable, Codable, Sendable {
     }
 }
 
+enum ChatAIModel: String, CaseIterable, Identifiable, Codable, Sendable {
+    case gemini20Flash = "gemini-2.0-flash"
+    case gemini15Pro = "gemini-1.5-pro"
+    case claudeSonnet = "claude-3-5-sonnet"
+    case claudeHaiku = "claude-3-5-haiku"
+    case gpt4o = "gpt-4o"
+    case lmStudio = "lm-studio"
+    case mlx = "mlx"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .gemini20Flash: return "Google Gemini 2.0 Flash"
+        case .gemini15Pro: return "Google Gemini 1.5 Pro"
+        case .claudeSonnet: return "Anthropic Claude 3.5 Sonnet"
+        case .claudeHaiku: return "Anthropic Claude 3.5 Haiku"
+        case .gpt4o: return "OpenAI / OpenRouter GPT-4o"
+        case .lmStudio: return "LM Studio Local (Port 1234)"
+        case .mlx: return "MLX Local (Port 8080)"
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .gemini20Flash: return "Gemini 2.0 Flash"
+        case .gemini15Pro: return "Gemini 1.5 Pro"
+        case .claudeSonnet: return "Claude 3.5 Sonnet"
+        case .claudeHaiku: return "Claude 3.5 Haiku"
+        case .gpt4o: return "GPT-4o"
+        case .lmStudio: return "LM Studio"
+        case .mlx: return "MLX Local"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .gemini20Flash, .gemini15Pro: return "sparkles"
+        case .claudeSonnet, .claudeHaiku: return "brain"
+        case .gpt4o: return "bolt"
+        case .lmStudio, .mlx: return "cpu"
+        }
+    }
+}
+
 @MainActor
 final class LocalAIRouter: ObservableObject {
     static let shared = LocalAIRouter()
@@ -34,51 +79,63 @@ final class LocalAIRouter: ObservableObject {
         static let lmStudioEndpoint = "PalmierLocalAILMStudioEndpoint"
         static let comfyEndpoint = "PalmierLocalAIComfyEndpoint"
         static let googleAIKey = "PalmierGoogleAIAPIKey"
+        static let anthropicAPIKey = "PalmierAnthropicAPIKey"
+        static let openAIAPIKey = "PalmierOpenAIAPIKey"
+        static let selectedChatModel = "PalmierSelectedChatModel"
     }
 
     @Published var activeProvider: LocalAIProvider {
-        didSet {
-            UserDefaults.standard.set(activeProvider.rawValue, forKey: Keys.activeProvider)
-        }
+        didSet { UserDefaults.standard.set(activeProvider.rawValue, forKey: Keys.activeProvider) }
+    }
+
+    @Published var selectedChatModel: ChatAIModel {
+        didSet { UserDefaults.standard.set(selectedChatModel.rawValue, forKey: Keys.selectedChatModel) }
     }
 
     @Published var mlxEndpoint: String {
-        didSet {
-            UserDefaults.standard.set(mlxEndpoint, forKey: Keys.mlxEndpoint)
-        }
+        didSet { UserDefaults.standard.set(mlxEndpoint, forKey: Keys.mlxEndpoint) }
     }
 
     @Published var lmStudioEndpoint: String {
-        didSet {
-            UserDefaults.standard.set(lmStudioEndpoint, forKey: Keys.lmStudioEndpoint)
-        }
+        didSet { UserDefaults.standard.set(lmStudioEndpoint, forKey: Keys.lmStudioEndpoint) }
     }
 
     @Published var comfyEndpoint: String {
-        didSet {
-            UserDefaults.standard.set(comfyEndpoint, forKey: Keys.comfyEndpoint)
-        }
+        didSet { UserDefaults.standard.set(comfyEndpoint, forKey: Keys.comfyEndpoint) }
     }
 
     @Published var googleAIKey: String {
-        didSet {
-            UserDefaults.standard.set(googleAIKey, forKey: Keys.googleAIKey)
-        }
+        didSet { UserDefaults.standard.set(googleAIKey, forKey: Keys.googleAIKey) }
+    }
+
+    @Published var anthropicAPIKey: String {
+        didSet { UserDefaults.standard.set(anthropicAPIKey, forKey: Keys.anthropicAPIKey) }
+    }
+
+    @Published var openAIAPIKey: String {
+        didSet { UserDefaults.standard.set(openAIAPIKey, forKey: Keys.openAIAPIKey) }
     }
 
     private init() {
         let savedProvider = UserDefaults.standard.string(forKey: Keys.activeProvider)
             .flatMap { LocalAIProvider(rawValue: $0) } ?? .localMetal
+        let savedChatModel = UserDefaults.standard.string(forKey: Keys.selectedChatModel)
+            .flatMap { ChatAIModel(rawValue: $0) } ?? .gemini20Flash
         let savedMLX = UserDefaults.standard.string(forKey: Keys.mlxEndpoint) ?? "http://localhost:8080"
         let savedLMStudio = UserDefaults.standard.string(forKey: Keys.lmStudioEndpoint) ?? "http://localhost:1234/v1"
         let savedComfy = UserDefaults.standard.string(forKey: Keys.comfyEndpoint) ?? "http://127.0.0.1:8188"
         let savedGoogleKey = UserDefaults.standard.string(forKey: Keys.googleAIKey) ?? ""
+        let savedAnthropicKey = UserDefaults.standard.string(forKey: Keys.anthropicAPIKey) ?? ""
+        let savedOpenAIKey = UserDefaults.standard.string(forKey: Keys.openAIAPIKey) ?? ""
 
         self.activeProvider = savedProvider
+        self.selectedChatModel = savedChatModel
         self.mlxEndpoint = savedMLX
         self.lmStudioEndpoint = savedLMStudio
         self.comfyEndpoint = savedComfy
         self.googleAIKey = savedGoogleKey
+        self.anthropicAPIKey = savedAnthropicKey
+        self.openAIAPIKey = savedOpenAIKey
     }
 
     // MARK: - Upscale Dispatch

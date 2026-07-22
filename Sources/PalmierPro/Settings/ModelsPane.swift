@@ -60,32 +60,81 @@ struct ModelsPane: View {
     }
 
     private var localAISection: some View {
-        SettingsSection(title: "Local Hardware & Custom AI Backends") {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                HStack {
-                    Text("Generative & Upscale Provider")
-                        .font(.system(size: AppTheme.FontSize.md))
-                        .foregroundStyle(AppTheme.Text.primaryColor)
-                    Spacer()
-                    Picker("", selection: $router.activeProvider) {
-                        ForEach(LocalAIProvider.allCases) { provider in
-                            Text(provider.displayName).tag(provider)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                if router.activeProvider == .mlxInference {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+            SettingsSection(title: "AI Chat & Reasoning Model") {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                     HStack {
-                        Text("MLX Server Endpoint")
-                            .font(.system(size: AppTheme.FontSize.sm))
-                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Text("Default Active Chat Model")
+                            .font(.system(size: AppTheme.FontSize.md))
+                            .foregroundStyle(AppTheme.Text.primaryColor)
                         Spacer()
-                        TextField("http://localhost:8080", text: $router.mlxEndpoint)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
+                        Picker("", selection: $router.selectedChatModel) {
+                            ForEach(ChatAIModel.allCases) { model in
+                                Text(model.displayName).tag(model)
+                            }
+                        }
+                        .pickerStyle(.menu)
                     }
-                } else if router.activeProvider == .lmStudio {
+
+                    Text("You can also switch models on the fly directly inside the Chat Agent header.")
+                        .font(.system(size: AppTheme.FontSize.xs))
+                        .foregroundStyle(AppTheme.Text.tertiaryColor)
+                }
+            }
+
+            SettingsSection(title: "API Keys & Custom Backends") {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Google AI Studio (Gemini) Key")
+                                .font(.system(size: AppTheme.FontSize.sm, weight: .medium))
+                                .foregroundStyle(AppTheme.Text.primaryColor)
+                            Text("Used for Gemini 2.0 Flash & Gemini 1.5 Pro")
+                                .font(.system(size: AppTheme.FontSize.xs))
+                                .foregroundStyle(AppTheme.Text.tertiaryColor)
+                        }
+                        Spacer()
+                        SecureField("AIzaSy...", text: $router.googleAIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 240)
+                    }
+
+                    Divider().opacity(0.3)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Anthropic API Key")
+                                .font(.system(size: AppTheme.FontSize.sm, weight: .medium))
+                                .foregroundStyle(AppTheme.Text.primaryColor)
+                            Text("Used for Claude 3.5 Sonnet & Haiku")
+                                .font(.system(size: AppTheme.FontSize.xs))
+                                .foregroundStyle(AppTheme.Text.tertiaryColor)
+                        }
+                        Spacer()
+                        SecureField("sk-ant-...", text: $router.anthropicAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 240)
+                    }
+
+                    Divider().opacity(0.3)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("OpenAI / OpenRouter API Key")
+                                .font(.system(size: AppTheme.FontSize.sm, weight: .medium))
+                                .foregroundStyle(AppTheme.Text.primaryColor)
+                            Text("Used for GPT-4o & OpenRouter models")
+                                .font(.system(size: AppTheme.FontSize.xs))
+                                .foregroundStyle(AppTheme.Text.tertiaryColor)
+                        }
+                        Spacer()
+                        SecureField("sk-or-...", text: $router.openAIAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 240)
+                    }
+
+                    Divider().opacity(0.3)
+
                     HStack {
                         Text("LM Studio Endpoint")
                             .font(.system(size: AppTheme.FontSize.sm))
@@ -93,37 +142,39 @@ struct ModelsPane: View {
                         Spacer()
                         TextField("http://localhost:1234/v1", text: $router.lmStudioEndpoint)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
+                            .frame(width: 240)
                     }
-                } else if router.activeProvider == .comfyUI {
+
                     HStack {
-                        Text("ComfyUI API Endpoint")
+                        Text("MLX Server Endpoint")
+                            .font(.system(size: AppTheme.FontSize.sm))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Spacer()
+                        TextField("http://localhost:8080", text: $router.mlxEndpoint)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 240)
+                    }
+
+                    HStack {
+                        Text("ComfyUI Endpoint")
                             .font(.system(size: AppTheme.FontSize.sm))
                             .foregroundStyle(AppTheme.Text.secondaryColor)
                         Spacer()
                         TextField("http://127.0.0.1:8188", text: $router.comfyEndpoint)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
-                    }
-                } else if router.activeProvider == .googleAI {
-                    HStack {
-                        Text("Google AI Pro (Gemini) API Key")
-                            .font(.system(size: AppTheme.FontSize.sm))
-                            .foregroundStyle(AppTheme.Text.secondaryColor)
-                        Spacer()
-                        SecureField("AIzaSy...", text: $router.googleAIKey)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
+                            .frame(width: 240)
                     }
                 }
+            }
 
+            SettingsSection(title: "Hardware Acceleration") {
                 HStack(spacing: AppTheme.Spacing.xs) {
                     Image(systemName: "cpu")
-                        .font(.system(size: AppTheme.FontSize.xs))
+                        .font(.system(size: AppTheme.FontSize.sm))
                         .foregroundStyle(AppTheme.Accent.primary)
-                    Text("Upscaling is processed 100% locally on your Mac M-series GPU via Metal Performance Shaders.")
+                    Text("Video & Image upscaling is processed 100% locally on your Mac M-series GPU via Metal Performance Shaders.")
                         .font(.system(size: AppTheme.FontSize.xs))
-                        .foregroundStyle(AppTheme.Text.tertiaryColor)
+                        .foregroundStyle(AppTheme.Text.secondaryColor)
                 }
             }
         }
@@ -175,7 +226,7 @@ struct ModelsPane: View {
             Spacer(minLength: AppTheme.Spacing.lg)
             if locked {
                 Button("Subscribe") {
-                    SettingsWindowController.shared.show(tab: .account)
+                    SettingsWindowController.shared.show(tab: .models)
                 }
                 .buttonStyle(.capsule(.secondary))
             } else {
