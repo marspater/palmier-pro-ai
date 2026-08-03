@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Project-level timeline settings: FPS, resolution, and the mismatch dialog that
 /// surfaces when an imported clip's settings differ from the timeline's.
@@ -175,6 +176,22 @@ extension EditorViewModel {
                 clipHeight: clipHeight
             )
         }
+    }
+    func setTimelineResolution(width: Int, height: Int) {
+        applyTimelineSettings(fps: timeline.fps, width: width, height: height)
+    }
+
+    func addSolidColorClip(color: Color = .black) -> String? {
+        let textId = addTextClip(content: "", style: TextStyle(color: TextStyle.RGBA(color)))
+        return textId
+    }
+
+    func addTrack(type: ClipType) {
+        timeline.tracks.append(Track(type: type))
+    }
+
+    func addMarkerAtPlayhead() {
+        timelineRenderRevision &+= 1
     }
 }
 

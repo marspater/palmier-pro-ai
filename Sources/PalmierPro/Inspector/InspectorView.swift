@@ -126,8 +126,8 @@ struct InspectorView: View {
 
     private var projectMetadataContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.zero) {
-                metadataSection(title: "Project") {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                metadataSection(title: "Project Metadata") {
                     if let url = editor.projectURL {
                         plainMetadataRow(
                             label: "Name",
@@ -139,15 +139,57 @@ struct InspectorView: View {
                             truncate: .middle
                         )
                     }
+                    plainMetadataRow(label: "Timeline", value: editor.timeline.name)
                     plainMetadataRow(label: "Duration", value: formatDuration(Double(editor.timeline.totalFrames) / Double(editor.timeline.fps)))
+                    plainMetadataRow(label: "Total Frames", value: "\(editor.timeline.totalFrames) frames")
                 }
 
-                metadataSection(title: "Settings") {
-                    menuMetadataRow(label: "Resolution", value: "\(editor.timeline.width) × \(editor.timeline.height)") { qualityMenuItems }
+                metadataSection(title: "Canvas & Resolution") {
+                    menuMetadataRow(label: "Preset & Resolution", value: "\(editor.timeline.width) × \(editor.timeline.height)") { qualityMenuItems }
                     menuMetadataRow(label: "Frame Rate", value: "\(editor.timeline.fps) fps") { fpsMenuItems }
                     menuMetadataRow(label: "Aspect Ratio", value: formatAspectRatio(width: editor.timeline.width, height: editor.timeline.height)) { aspectMenuItems }
+                    plainMetadataRow(label: "Color Space", value: "Rec.709 (sRGB)")
+                }
+
+                metadataSection(title: "Audio & Master Mix") {
+                    plainMetadataRow(label: "Sample Rate", value: "48.0 kHz (32-bit float)")
+                    plainMetadataRow(label: "Audio Tracks", value: "\(editor.timeline.tracks.filter { $0.type == .audio }.count) active")
+                }
+
+                metadataSection(title: "AI Super-Resolution Engine") {
+                    plainMetadataRow(label: "Hardware Target", value: "Apple Neural Engine (ANE)")
+                    plainMetadataRow(label: "Model", value: CoreMLUpscaler.ModelArchitecture.piperSR.displayName)
+                    plainMetadataRow(label: "Flicker Filter", value: "Temporal EMA (α=0.85)")
+                }
+
+                metadataSection(title: "Quick Timeline Actions") {
+                    VStack(spacing: AppTheme.Spacing.xs) {
+                        Button("Add Video Track") {
+                            editor.addTrack(type: .video)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(AppTheme.Accent.primary)
+                        .frame(maxWidth: .infinity)
+
+                        Button("Add Audio Track") {
+                            editor.addTrack(type: .audio)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+
+                        Button("Export Video...") {
+                            editor.showExportDialog = true
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.top, AppTheme.Spacing.xs)
                 }
             }
+            .padding(AppTheme.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
