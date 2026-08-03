@@ -172,7 +172,7 @@ struct ModelsPane: View {
                     Image(systemName: "cpu")
                         .font(.system(size: AppTheme.FontSize.sm))
                         .foregroundStyle(AppTheme.Accent.primary)
-                    Text("Video & Image upscaling is processed 100% locally on your Mac M-series GPU via Metal Performance Shaders.")
+                    Text("Video & Image upscaling is powered 100% locally on your Mac's Apple Neural Engine (ANE) and M-series GPU via Core ML & Metal Performance Shaders (PiperSR & Real-ESRGAN).")
                         .font(.system(size: AppTheme.FontSize.xs))
                         .foregroundStyle(AppTheme.Text.secondaryColor)
                 }
